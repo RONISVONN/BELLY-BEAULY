@@ -1,0 +1,57 @@
+# Nome do seu fluxo de trabalho de deploy
+name: Deploy para UOL Host
+
+# Gatilho: Executar este fluxo sempre que houver um 'push' para a branch 'main'
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Nome do "trabalho" que será executado
+  deploy:
+    # O tipo de máquina que vai rodar o build (a mais recente do Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Baixar o código do seu repositório para a máquina do GitHub
+      - name: Baixar o código
+        uses: actions/checkout@v3
+
+      # 2. Configurar o PHP na versão 8.0
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+
+      # 3. Instalar as dependências do Laravel com Composer
+      - name: Instalar dependências (Composer)
+        run: composer install --prefer-dist --no-progress --no-dev -o
+
+      # 4. Preparar o arquivo .env para produção
+      - name: Preparar arquivo de ambiente
+        run: |
+          # Copia o .env.example para .env
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          # Gera a chave do Laravel
+          php artisan key:generate
+
+      # 5. Otimizar o Laravel para produção
+      - name: Otimizar para produção
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      # 6. Enviar os arquivos para o servidor via FTP
+      - name: Enviar via FTP
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          # Endereço do servidor FTP da UOL Host
+          server: ${{ secrets.FTP_SERVER }}
+          # Seu nome de usuário do FTP
+          username: ${{ secrets.FTP_USERNAME }}
+          # Sua senha do FTP (armazenada de forma segura)
+          password: ${{ secrets.FTP_PASSWORD }}
+          # Pasta no servidor para onde os arquivos serão enviados
+          server-dir: /rgssoftwarebr.online/
